@@ -104,32 +104,33 @@ impl World {
 
         let circle = epaint::Shape::Circle(epaint::CircleShape::filled(
             egui::Pos2::ZERO,
-            1.0,
+            10.0,
             egui::Color32::BLUE,
         ));
         let mut tess = epaint::tessellator::Tessellator::new(
             1.0,
             epaint::TessellationOptions::default(),
-            [10, 10],
+            [100, 100],
             vec![],
         );
         let mut mesh = epaint::Mesh::default();
         tess.tessellate_shape(circle, &mut mesh);
 
-        let texture = Buffer2d::fill([100, 100], [0_f32; 4]);
+        let texture = Buffer2d::fill([100, 100], [1_f32; 4]);
 
         let sampler = texture
-            .map(|[r, g, b, a]| egui::Rgba::from_rgba_unmultiplied(r, g, b, a))
+            .map(|[r, g, b, a]| egui::Rgba::from_rgba_premultiplied(r, g, b, a))
             .linear();
 
-        let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
+        //let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
         let pipeline = EguiMeshEucPipeline {
             vertices: &mesh.vertices,
             sampler,
         };
         pipeline.render(
             mesh.indices,
-            &mut scissor,
+            &mut color,
+            //&mut scissor,
             &mut depth,
         );
 
@@ -156,7 +157,7 @@ where
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         let vertex = self.vertices[*idx as usize];
         let pos = self.vertices[*idx as usize].pos;
-        let xyzw = [pos.x, pos.y, 0.0, 1.0];
+        let xyzw = [pos.x / 100.0, pos.y / 100.0, 0.0, 1.0];
         (xyzw, vertex.into())
     }
 
@@ -167,6 +168,12 @@ where
 
     fn blend(&self, _: Self::Pixel, color: Self::Fragment) -> Self::Pixel {
         u32::from_le_bytes(color.to_srgba_unmultiplied())
+    }
+
+    fn coordinate_mode(&self) -> euc::CoordinateMode {
+        let mut c = euc::CoordinateMode::default();
+        c.handedness = euc::Handedness::Left;
+        c
     }
 }
 
