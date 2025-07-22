@@ -102,9 +102,33 @@ impl World {
         let mut color = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 0);
         let mut depth = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 1.0);
 
+        let circle = epaint::Shape::Circle(epaint::CircleShape::filled(
+            egui::Pos2::ZERO,
+            1.0,
+            egui::Color32::BLUE,
+        ));
+        let mut tess = epaint::tessellator::Tessellator::new(
+            1.0,
+            epaint::TessellationOptions::default(),
+            [10, 10],
+            vec![],
+        );
+        let mut mesh = epaint::Mesh::default();
+        tess.tessellate_shape(circle, &mut mesh);
+
+        let texture = Buffer2d::fill([100, 100], [0_f32; 4]);
+
+        let sampler = texture
+            .map(|[r, g, b, a]| egui::Rgba::from_rgba_unmultiplied(r, g, b, a))
+            .linear();
+
         let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
-        EguiMeshEucPipeline.render(
-            vec![[-1.0, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, 0.0]],
+        let pipeline = EguiMeshEucPipeline {
+            vertices: &mesh.vertices,
+            sampler,
+        };
+        pipeline.render(
+            mesh.indices,
             &mut scissor,
             &mut depth,
         );
@@ -113,18 +137,16 @@ impl World {
     }
 }
 
-struct EguiMeshEucPipeline<'r, ColorSampler, UvSampler> {
-    color_sampler: ColorSampler,
-    uv_sampler: UvSampler,
+struct EguiMeshEucPipeline<'r, S> {
+    sampler: S,
     vertices: &'r [epaint::Vertex],
 }
 
-impl<'r, ColorSampler, UvSampler> Pipeline<'r> for EguiMeshEucPipeline<'r, ColorSampler, UvSampler>
+impl<'r, S> Pipeline<'r> for EguiMeshEucPipeline<'r, S>
 where
-    ColorSampler: Sampler<2, Index = f32, Sample = Rgba>,
-    UvSampler: Sampler<2, Index = f32, Sample = egui::Vec2>,
+    S: Sampler<2, Index = f32, Sample = egui::Rgba>,
 {
-    type Vertex = usize;
+    type Vertex = u32;
     type VertexData = EguiVertexData;
     type Primitives = TriangleList;
     type Pixel = u32;
@@ -132,8 +154,8 @@ where
 
     #[inline(always)]
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
-        let vertex = self.vertices[*idx];
-        let pos = self.vertices[*idx].pos;
+        let vertex = self.vertices[*idx as usize];
+        let pos = self.vertices[*idx as usize].pos;
         let xyzw = [pos.x, pos.y, 0.0, 1.0];
         (xyzw, vertex.into())
     }
