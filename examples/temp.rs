@@ -17,10 +17,6 @@ const BOX_SIZE: i16 = 64;
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
 struct World {
-    box_x: i16,
-    box_y: i16,
-    velocity_x: i16,
-    velocity_y: i16,
 }
 
 fn main() -> Result<(), Error> {
@@ -95,24 +91,11 @@ impl World {
     /// Create a new `World` instance that can draw a moving box.
     fn new() -> Self {
         Self {
-            box_x: 24,
-            box_y: 16,
-            velocity_x: 1,
-            velocity_y: 1,
         }
     }
 
     /// Update the `World` internal state; bounce the box around the screen.
     fn update(&mut self) {
-        if self.box_x <= 0 || self.box_x + BOX_SIZE > WIDTH as i16 {
-            self.velocity_x *= -1;
-        }
-        if self.box_y <= 0 || self.box_y + BOX_SIZE > HEIGHT as i16 {
-            self.velocity_y *= -1;
-        }
-
-        self.box_x += self.velocity_x;
-        self.box_y += self.velocity_y;
     }
 
     /// Draw the `World` state to the frame buffer.
@@ -135,53 +118,6 @@ impl World {
         frame.copy_from_slice(bytemuck::cast_slice(color.raw()));
     }
 }
-
-/*
-   struct EucBorrowedFrameBuffer<'a> {
-   pixels: &'a mut [u32],
-   width: usize,
-   height: usize,
-   }
-
-   impl<'a> EucBorrowedFrameBuffer<'a> {
-   pub fn new(buf: &'a mut [u8], width: usize, height: usize) -> Self {
-   Self {
-   pixels: bytemuck::cast_slice_mut(buf),
-   height,
-   width,
-   }
-   }
-
-   fn index(&self, x: usize, y: usize) -> usize {
-   x + y * self.width
-   }
-   }
-
-   impl euc::Texture<2> for EucBorrowedFrameBuffer<'_> {
-   type Index = usize;
-   type Texel = u32;
-
-   fn size(&self) -> [Self::Index; 2] {
-   [self.width, self.height]
-   }
-
-   fn read(&self, [x, y]: [Self::Index; 2]) -> Self::Texel {
-   self.pixels[self.index(x, y)]
-   }
-   }
-
-   impl euc::Target for EucBorrowedFrameBuffer<'_> {
-   unsafe fn read_exclusive_unchecked(&self, x: usize, y: usize) -> Self::Texel {
-   use euc::Texture;
-   self.read([x, y])
-   }
-
-   unsafe fn write_exclusive_unchecked(&self, x: usize, y: usize, texel: Self::Texel) {
-   let idx = self.index(x, y);
-   self.pixels[idx] = texel;
-   }
-   }
-   */
 
 struct Example;
 
