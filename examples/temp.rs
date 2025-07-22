@@ -1,4 +1,7 @@
+use egui::Rgba;
 use error_iter::ErrorIter as _;
+use euc::rasterizer::Triangles;
+use euc::{Buffer2d, Pipeline, TriangleList};
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
@@ -116,22 +119,93 @@ impl World {
     ///
     /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
     fn draw(&self, frame: &mut [u8]) {
-        for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-            let x = (i % WIDTH as usize) as i16;
-            let y = (i / WIDTH as usize) as i16;
+        let mut color = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 0);
+        let mut depth = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 1.0);
 
-            let inside_the_box = x >= self.box_x
-                && x < self.box_x + BOX_SIZE
-                && y >= self.box_y
-                && y < self.box_y + BOX_SIZE;
+        Example.render(
+            vec![
+            [-1.0, -1.0, 0.0],
+            [ 1.0, -1.0, 0.0],
+            [ 0.0,  1.0, 0.0],
+            ],
+            &mut color,
+            &mut depth,
+        );
 
-            let rgba = if inside_the_box {
-                [0x5e, 0x48, 0xe8, 0xff]
-            } else {
-                [0x48, 0xb2, 0xe8, 0xff]
-            };
-
-            pixel.copy_from_slice(&rgba);
-        }
+        frame.copy_from_slice(bytemuck::cast_slice(color.raw()));
     }
 }
+
+/*
+   struct EucBorrowedFrameBuffer<'a> {
+   pixels: &'a mut [u32],
+   width: usize,
+   height: usize,
+   }
+
+   impl<'a> EucBorrowedFrameBuffer<'a> {
+   pub fn new(buf: &'a mut [u8], width: usize, height: usize) -> Self {
+   Self {
+   pixels: bytemuck::cast_slice_mut(buf),
+   height,
+   width,
+   }
+   }
+
+   fn index(&self, x: usize, y: usize) -> usize {
+   x + y * self.width
+   }
+   }
+
+   impl euc::Texture<2> for EucBorrowedFrameBuffer<'_> {
+   type Index = usize;
+   type Texel = u32;
+
+   fn size(&self) -> [Self::Index; 2] {
+   [self.width, self.height]
+   }
+
+   fn read(&self, [x, y]: [Self::Index; 2]) -> Self::Texel {
+   self.pixels[self.index(x, y)]
+   }
+   }
+
+   impl euc::Target for EucBorrowedFrameBuffer<'_> {
+   unsafe fn read_exclusive_unchecked(&self, x: usize, y: usize) -> Self::Texel {
+   use euc::Texture;
+   self.read([x, y])
+   }
+
+   unsafe fn write_exclusive_unchecked(&self, x: usize, y: usize, texel: Self::Texel) {
+   let idx = self.index(x, y);
+   self.pixels[idx] = texel;
+   }
+   }
+   */
+
+struct Example;
+
+
+impl<'r> Pipeline<'r> for Example {
+    type Vertex = [f32; 3];
+    type VertexData = Rgba;
+    type Primitives = TriangleList;
+    type Pixel = u32;
+    type Fragment = Rgba;
+
+    #[inline(always)]
+    fn vertex(&self, [x, y, z]: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
+        ([*x, *y, *z, 1.0], Rgba::from_rgb(*x, *y, *z))
+    }
+
+    #[inline(always)]
+    fn fragment(&self, color: Self::VertexData) -> Self::Fragment {
+        color
+    }
+
+    fn blend(&self, _: Self::Pixel, color: Self::Fragment) -> Self::Pixel {
+        u32::from_le_bytes(color.to_srgba_unmultiplied())
+    }
+}
+
+

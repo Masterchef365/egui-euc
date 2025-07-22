@@ -566,6 +566,7 @@ dependencies = [
 name = "egui-euc"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
  "egui",
  "env_logger",
  "error-iter",
