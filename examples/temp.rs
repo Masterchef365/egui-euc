@@ -1,7 +1,7 @@
 use egui::Rgba;
 use error_iter::ErrorIter as _;
 use euc::rasterizer::Triangles;
-use euc::{Buffer2d, Pipeline, TriangleList};
+use euc::{Buffer2d, Pipeline, Target, Texture, TriangleList};
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
@@ -16,8 +16,7 @@ const HEIGHT: u32 = 240;
 const BOX_SIZE: i16 = 64;
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
-struct World {
-}
+struct World {}
 
 fn main() -> Result<(), Error> {
     env_logger::init();
@@ -90,13 +89,11 @@ fn log_error<E: std::error::Error + 'static>(method_name: &str, err: E) {
 impl World {
     /// Create a new `World` instance that can draw a moving box.
     fn new() -> Self {
-        Self {
-        }
+        Self {}
     }
 
     /// Update the `World` internal state; bounce the box around the screen.
-    fn update(&mut self) {
-    }
+    fn update(&mut self) {}
 
     /// Draw the `World` state to the frame buffer.
     ///
@@ -105,13 +102,10 @@ impl World {
         let mut color = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 0);
         let mut depth = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 1.0);
 
+        let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
         Example.render(
-            vec![
-            [-1.0, -1.0, 0.0],
-            [ 1.0, -1.0, 0.0],
-            [ 0.0,  1.0, 0.0],
-            ],
-            &mut color,
+            vec![[-1.0, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, 0.0]],
+            &mut scissor,
             &mut depth,
         );
 
@@ -120,7 +114,6 @@ impl World {
 }
 
 struct Example;
-
 
 impl<'r> Pipeline<'r> for Example {
     type Vertex = [f32; 3];
@@ -144,4 +137,64 @@ impl<'r> Pipeline<'r> for Example {
     }
 }
 
+struct Scissor<T> {
+    inner: T,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+}
 
+impl<T> Scissor<T> {
+    pub fn new(
+    inner: T,
+    x: usize,
+    y: usize,
+    width: usize,
+    height: usize,
+
+
+        ) -> Self {
+        Self {
+            inner,
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    fn bounds_check(&self, x: usize, y: usize) -> bool {
+        x >= self.x && y >= self.y && x < self.x + self.width && y < self.y + self.height
+    }
+}
+
+impl<T, const N: usize> Texture<N> for Scissor<T>
+where
+    T: Texture<N>,
+{
+    type Index = T::Index;
+    type Texel = T::Texel;
+
+    fn size(&self) -> [Self::Index; N] {
+        self.inner.size()
+    }
+
+    fn read(&self, index: [Self::Index; N]) -> Self::Texel {
+        self.inner.read(index)
+    }
+}
+
+impl<T: Target> Target for Scissor<T> {
+    unsafe fn read_exclusive_unchecked(&self, x: usize, y: usize) -> Self::Texel {
+        unsafe { self.inner.read_exclusive_unchecked(x, y) }
+    }
+
+    unsafe fn write_exclusive_unchecked(&self, x: usize, y: usize, texel: Self::Texel) {
+        if self.bounds_check(x, y) {
+            unsafe {
+                self.inner.write_exclusive_unchecked(x, y, texel);
+            }
+        }
+    }
+}
