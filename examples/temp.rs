@@ -1,7 +1,7 @@
-use egui::Rgba;
+use egui::{epaint, Rgba};
 use error_iter::ErrorIter as _;
 use euc::rasterizer::Triangles;
-use euc::{Buffer2d, Pipeline, Target, Texture, TriangleList};
+use euc::{Buffer2d, Pipeline, Sampler, Target, Texture, TriangleList};
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
@@ -103,7 +103,7 @@ impl World {
         let mut depth = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 1.0);
 
         let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
-        Example.render(
+        EguiMeshEucPipeline.render(
             vec![[-1.0, -1.0, 0.0], [1.0, -1.0, 0.0], [0.0, 1.0, 0.0]],
             &mut scissor,
             &mut depth,
@@ -113,23 +113,34 @@ impl World {
     }
 }
 
-struct Example;
+struct EguiMeshEucPipeline<'r, ColorSampler, UvSampler> {
+    color_sampler: ColorSampler,
+    uv_sampler: UvSampler,
+    vertices: &'r [epaint::Vertex],
+}
 
-impl<'r> Pipeline<'r> for Example {
-    type Vertex = [f32; 3];
-    type VertexData = Rgba;
+impl<'r, ColorSampler, UvSampler> Pipeline<'r> for EguiMeshEucPipeline<'r, ColorSampler, UvSampler>
+where
+    ColorSampler: Sampler<2, Index = f32, Sample = Rgba>,
+    UvSampler: Sampler<2, Index = f32, Sample = egui::Vec2>,
+{
+    type Vertex = usize;
+    type VertexData = EguiVertexData;
     type Primitives = TriangleList;
     type Pixel = u32;
     type Fragment = Rgba;
 
     #[inline(always)]
-    fn vertex(&self, [x, y, z]: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
-        ([*x, *y, *z, 1.0], Rgba::from_rgb(*x, *y, *z))
+    fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
+        let vertex = self.vertices[*idx];
+        let pos = self.vertices[*idx].pos;
+        let xyzw = [pos.x, pos.y, 0.0, 1.0];
+        (xyzw, vertex.into())
     }
 
     #[inline(always)]
     fn fragment(&self, color: Self::VertexData) -> Self::Fragment {
-        color
+        color.color
     }
 
     fn blend(&self, _: Self::Pixel, color: Self::Fragment) -> Self::Pixel {
@@ -146,15 +157,7 @@ struct Scissor<T> {
 }
 
 impl<T> Scissor<T> {
-    pub fn new(
-    inner: T,
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
-
-
-        ) -> Self {
+    pub fn new(inner: T, x: usize, y: usize, width: usize, height: usize) -> Self {
         Self {
             inner,
             x,
@@ -195,6 +198,41 @@ impl<T: Target> Target for Scissor<T> {
             unsafe {
                 self.inner.write_exclusive_unchecked(x, y, texel);
             }
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct EguiVertexData {
+    pub uv: egui::Pos2,
+    pub color: egui::Rgba,
+}
+
+impl std::ops::Mul<f32> for EguiVertexData {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            uv: self.uv.to_vec2().mul(rhs).to_pos2(),
+            color: self.color.mul(rhs),
+        }
+    }
+}
+
+impl std::ops::Add<Self> for EguiVertexData {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            uv: self.uv + rhs.uv.to_vec2(),
+            color: self.color + rhs.color,
+        }
+    }
+}
+
+impl From<epaint::Vertex> for EguiVertexData {
+    fn from(value: epaint::Vertex) -> Self {
+        EguiVertexData {
+            uv: value.uv,
+            color: value.color.into(),
         }
     }
 }
