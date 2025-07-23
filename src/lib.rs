@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use egui::{
-    epaint, ClippedPrimitive, Color32, ImageData, Rgba, TextureId, TextureOptions, TexturesDelta,
+    epaint, ClippedPrimitive, Color32, ImageData, Rgba, TextureFilter, TextureId, TextureOptions,
+    TextureWrapMode, TexturesDelta,
 };
 use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
 
@@ -223,23 +224,65 @@ impl Painter {
 
         for item in clipped_primitives {
             if let epaint::Primitive::Mesh(mesh) = &item.primitive {
-                let mut scissor = Scissor::from_clip_rect(&mut color, screen_size, pixels_per_point, item.clip_rect);
+                let mut scissor = Scissor::from_clip_rect(
+                    &mut color,
+                    screen_size,
+                    pixels_per_point,
+                    item.clip_rect,
+                );
 
                 let texture = self
                     .textures
                     .get(&mesh.texture_id)
                     .expect("Mesh referenced absent texture");
 
-                let pipeline = EguiMeshEucPipeline {
-                    vertices: &mesh.vertices,
-                    sampler: texture.sampler(),
-                };
+                let pixels = &texture.pixels;
 
-                pipeline.render(
-                    &mesh.indices,
-                    &mut scissor,
-                    &mut depth,
-                );
+                // TODO: This dumb as HELL
+                match (texture.options.magnification, texture.options.wrap_mode) {
+                    (TextureFilter::Linear, TextureWrapMode::Repeat) => {
+                        EguiMeshEucPipeline {
+                            vertices: &mesh.vertices,
+                            sampler: pixels.linear().tiled(),
+                        }
+                        .render(&mesh.indices, &mut scissor, &mut depth);
+                    }
+                    (TextureFilter::Linear, TextureWrapMode::ClampToEdge) => {
+                        EguiMeshEucPipeline {
+                            vertices: &mesh.vertices,
+                            sampler: pixels.linear().clamped(),
+                        }
+                        .render(&mesh.indices, &mut scissor, &mut depth);
+                    }
+                    (TextureFilter::Linear, TextureWrapMode::MirroredRepeat) => {
+                        EguiMeshEucPipeline {
+                            vertices: &mesh.vertices,
+                            sampler: pixels.linear().mirrored(),
+                        }
+                        .render(&mesh.indices, &mut scissor, &mut depth);
+                    }
+                    (TextureFilter::Nearest, TextureWrapMode::Repeat) => {
+                        EguiMeshEucPipeline {
+                            vertices: &mesh.vertices,
+                            sampler: pixels.nearest().tiled(),
+                        }
+                        .render(&mesh.indices, &mut scissor, &mut depth);
+                    }
+                    (TextureFilter::Nearest, TextureWrapMode::ClampToEdge) => {
+                        EguiMeshEucPipeline {
+                            vertices: &mesh.vertices,
+                            sampler: pixels.nearest().clamped(),
+                        }
+                        .render(&mesh.indices, &mut scissor, &mut depth);
+                    }
+                    (TextureFilter::Nearest, TextureWrapMode::MirroredRepeat) => {
+                        EguiMeshEucPipeline {
+                            vertices: &mesh.vertices,
+                            sampler: pixels.nearest().mirrored(),
+                        }
+                        .render(&mesh.indices, &mut scissor, &mut depth);
+                    }
+                };
             }
         }
 
@@ -280,6 +323,7 @@ impl SoftwareTexture {
         }
     }
 
+    /*
     pub fn sampler<'a>(
         &'a self,
     ) -> Box<
@@ -288,9 +332,20 @@ impl SoftwareTexture {
             + Sync
             + 'a,
     > {
-        match self.options.magnification {
+        // TODO: Support minification?
+        let magnified: Box<
+        dyn Sampler<2, Index = f32, Sample = egui::Rgba, Texture = &'a Buffer2d<Rgba>>
+            + Send
+            + Sync
+            + 'a,
+    > = match self.options.magnification {
             egui::TextureFilter::Linear => Box::new((&self.pixels).linear()),
             egui::TextureFilter::Nearest => Box::new((&self.pixels).nearest()),
+        };
+
+        match self.options.wrap_mode {
+            egui::TextureWrapMode::Repeat => Box::new(magnified.tiled()),
         }
     }
+    */
 }
