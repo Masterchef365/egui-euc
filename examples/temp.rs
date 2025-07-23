@@ -1,4 +1,4 @@
-use egui::{epaint, Rgba};
+use egui::{epaint, Color32, Rgba};
 use error_iter::ErrorIter as _;
 use euc::rasterizer::Triangles;
 use euc::{Buffer2d, Pipeline, Sampler, Target, Texture, TriangleList};
@@ -114,7 +114,7 @@ impl World {
             rect,
             corner_radius: egui::CornerRadius::ZERO,
             fill: egui::Color32::ORANGE,
-            stroke: egui::Stroke::NONE,
+            stroke: egui::Stroke::new(1.0, Color32::RED),
             stroke_kind: egui::StrokeKind::Outside,
             round_to_pixels: None,
             blur_width: 0.0,
@@ -130,8 +130,6 @@ impl World {
         let mut mesh = epaint::Mesh::default();
         tess.tessellate_shape(circle, &mut mesh);
 
-        dbg!(&mesh.vertices);
-
         let texture = Buffer2d::fill([100, 100], [1_f32; 4]);
 
         let sampler = texture
@@ -143,8 +141,14 @@ impl World {
             vertices: &mesh.vertices,
             sampler,
         };
+
+        // Reverse the indices
+        let mut indices = mesh.indices.clone();
+        let reversed_triangles: Vec<u32> = mesh.indices.chunks_exact(3).map(|f| f.iter().copied().rev()).flatten().collect();
+        indices.extend(reversed_triangles);
+
         pipeline.render(
-            mesh.indices,
+            indices,
             &mut color,
             //&mut scissor,
             &mut depth,
@@ -172,8 +176,7 @@ where
     #[inline(always)]
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         let vertex = self.vertices[*idx as usize];
-        let pos = self.vertices[*idx as usize].pos;
-        let xyzw = [pos.x / 100.0, pos.y / 100.0, 0.0, 1.0];
+        let xyzw = [vertex.pos.x / 100.0, vertex.pos.y / 100.0, 0.0, 1.0];
         (xyzw, vertex.into())
     }
 
