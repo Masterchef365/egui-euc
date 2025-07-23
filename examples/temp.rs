@@ -13,7 +13,6 @@ use winit_input_helper::WinitInputHelper;
 
 const WIDTH: u32 = 320;
 const HEIGHT: u32 = 240;
-const BOX_SIZE: i16 = 64;
 
 /// Representation of the application state. In this example, a box will bounce around the screen.
 struct World {}
@@ -102,11 +101,26 @@ impl World {
         let mut color = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 0);
         let mut depth = Buffer2d::fill([WIDTH as usize, HEIGHT as usize], 1.0);
 
+        /*
         let circle = epaint::Shape::Circle(epaint::CircleShape::filled(
             egui::Pos2::ZERO,
-            10.0,
-            egui::Color32::BLUE,
+            30.0,
+            egui::Color32::ORANGE,
         ));
+        */
+
+        let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::ZERO + egui::Vec2::ONE * 10.0);
+        let circle = epaint::Shape::Rect(epaint::RectShape {
+            rect,
+            corner_radius: egui::CornerRadius::ZERO,
+            fill: egui::Color32::ORANGE,
+            stroke: egui::Stroke::NONE,
+            stroke_kind: egui::StrokeKind::Outside,
+            round_to_pixels: None,
+            blur_width: 0.0,
+            brush: None,
+        });
+
         let mut tess = epaint::tessellator::Tessellator::new(
             1.0,
             epaint::TessellationOptions::default(),
@@ -115,6 +129,8 @@ impl World {
         );
         let mut mesh = epaint::Mesh::default();
         tess.tessellate_shape(circle, &mut mesh);
+
+        dbg!(&mesh.vertices);
 
         let texture = Buffer2d::fill([100, 100], [1_f32; 4]);
 
