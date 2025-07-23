@@ -1,4 +1,6 @@
-use egui::{epaint, Color32, Rgba};
+use std::collections::HashMap;
+
+use egui::{epaint, ClippedPrimitive, Color32, ImageData, Rgba, TextureId, TextureOptions, TexturesDelta};
 use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
 
 #[derive(Clone, Copy, Debug)]
@@ -67,9 +69,7 @@ where
         u32::from_le_bytes(color.to_srgba_unmultiplied())
     }
 
-    fn rasterizer_config(
-            &self,
-        ) -> CullMode {
+    fn rasterizer_config(&self) -> CullMode {
         CullMode::None
     }
 }
@@ -128,3 +128,101 @@ impl<T: Target> Target for Scissor<T> {
     }
 }
 
+struct SoftwareTexture {
+    pixels: euc::Buffer2d<egui::Rgba>,
+    options: egui::TextureOptions,
+}
+
+pub struct Painter {
+    textures: HashMap<TextureId, SoftwareTexture>,
+}
+
+impl Painter {
+    pub fn paint_and_update_textures(
+        &mut self,
+        textures_delta: &TexturesDelta,
+        clipped_primitives: &[ClippedPrimitive],
+        pixels_per_point: f32,
+        screen_size: [u32; 2],
+    ) {
+        self.allocate_textures(textures_delta);
+
+        let image = self.render(
+            clipped_primitives,
+            pixels_per_point,
+            screen_size,
+        );
+
+        self.free_textures(textures_delta);
+
+        image
+    }
+
+    fn allocate_textures(
+        &mut self,
+        textures_delta: &TexturesDelta,
+    ) {
+        for (id, delta) in &textures_delta.set {
+            if let Some(texture) = self.textures.get_mut(id) {
+                texture.update(delta);
+            } else {
+                if !delta.is_whole() {
+                    self.textures.insert(id.clone(), SoftwareTexture::new(delta.image.clone(), delta.options));
+                } else {
+                    panic!("Attempted partial update on absent texture")
+                }
+            }
+        }
+    }
+
+    fn free_textures(
+        &mut self,
+        textures_delta: &TexturesDelta,
+    ) {
+        for id in &textures_delta.free {
+            self.textures.remove(id);
+        }
+    }
+
+    fn render(&mut self,
+        clipped_primitives: &[ClippedPrimitive],
+        pixels_per_point: f32,
+        screen_size: [u32; 2],
+    ) {
+        todo!()
+    }
+}
+
+impl SoftwareTexture {
+    pub fn new(image: epaint::ImageData, options: TextureOptions) -> Self {
+        let pixels = Buffer2d::fill([image.width(), image.height()], Rgba::RED);
+
+        let delta = epaint::ImageDelta::full(image, options);
+
+        let mut inst = Self {
+            pixels,
+            options,
+        };
+
+        inst.update(&delta);
+
+        inst
+    }
+
+    pub fn update(&mut self, delta: &epaint::ImageDelta) {
+        let epaint::ImageData::Color(patch) = &delta.image;
+
+        if delta.is_whole() && patch.size != self.pixels.size() {
+            *self = Self::new(delta.image.clone(), delta.options);
+            return;
+        }
+
+        let [off_x, off_y] = delta.pos.unwrap_or([0, 0]);
+
+        for y in 0..delta.image.width() {
+            for x in 0..delta.image.height() {
+                self.pixels.write(x + off_x, y + off_y, patch[(x, y)].into()); 
+            }
+        }
+    }
+}
