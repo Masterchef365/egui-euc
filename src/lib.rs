@@ -101,7 +101,7 @@ impl<T> Scissor<T> {
 
     fn from_clip_rect(
         inner: T,
-        [width_px, height_px]: [u32; 2],
+        [width_px, height_px]: [usize; 2],
         pixels_per_point: f32,
         clip_rect: egui::Rect,
     ) -> Self {
@@ -223,12 +223,23 @@ impl Painter {
 
         for item in clipped_primitives {
             if let epaint::Primitive::Mesh(mesh) = &item.primitive {
-                self.render_mesh(
-                    mesh,
-                    pixels_per_point,
-                    &mut color,
+                let mut scissor = Scissor::from_clip_rect(&mut color, screen_size, pixels_per_point, item.clip_rect);
+
+                let texture = self
+                    .textures
+                    .get(&mesh.texture_id)
+                    .expect("Mesh referenced absent texture");
+
+                let pipeline = EguiMeshEucPipeline {
+                    vertices: &mesh.vertices,
+                    sampler: texture.sampler(),
+                };
+
+                pipeline.render(
+                    //indices,
+                    &mesh.indices,
+                    &mut scissor,
                     &mut depth,
-                    item.clip_rect,
                 );
             }
         }
@@ -236,6 +247,7 @@ impl Painter {
         color
     }
 
+    /*
     fn render_mesh(
         &mut self,
         mesh: &egui::Mesh,
@@ -245,24 +257,9 @@ impl Painter {
         clip_rect: egui::Rect,
     ) {
         //let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
-        let texture = self
-            .textures
-            .get(&mesh.texture_id)
-            .expect("Mesh referenced absent texture");
-
-        let pipeline = EguiMeshEucPipeline {
-            vertices: &mesh.vertices,
-            sampler: texture.sampler(),
-        };
-
-        pipeline.render(
-            //indices,
-            &mesh.indices,
-            color,
-            //&mut scissor,
-            depth,
-        );
+        
     }
+    */
 }
 
 impl SoftwareTexture {
