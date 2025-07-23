@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 euc = { git = "https://github.com/zesterer/euc.git", rev = "e8f7aee" }
 egui = "0.32.0"
+bytemuck = "1.23.1"
+
 #egui-winit = { version = "0.32.0", default-features = false, features = ["links"] }
 
 [dev-dependencies]
@@ -15,4 +17,3 @@ error-iter = "0.4"
 log = "0.4"
 winit = "0.29"
 winit_input_helper = "0.15"
-bytemuck = "1.23.1"
