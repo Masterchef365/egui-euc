@@ -1,7 +1,7 @@
 use egui::{epaint, Color32, Rgba};
 use error_iter::ErrorIter as _;
 use euc::rasterizer::Triangles;
-use euc::{Buffer2d, Pipeline, Sampler, Target, Texture, TriangleList};
+use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
 use log::error;
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
@@ -143,12 +143,13 @@ impl World {
         };
 
         // Reverse the indices
-        let mut indices = mesh.indices.clone();
-        let reversed_triangles: Vec<u32> = mesh.indices.chunks_exact(3).map(|f| f.iter().copied().rev()).flatten().collect();
-        indices.extend(reversed_triangles);
+        //let mut indices = mesh.indices.clone();
+        //let reversed_triangles: Vec<u32> = mesh.indices.chunks_exact(3).map(|f| f.iter().copied().rev()).flatten().collect();
+        //indices.extend(reversed_triangles);
 
         pipeline.render(
-            indices,
+            //indices,
+            mesh.indices,
             &mut color,
             //&mut scissor,
             &mut depth,
@@ -189,10 +190,10 @@ where
         u32::from_le_bytes(color.to_srgba_unmultiplied())
     }
 
-    fn coordinate_mode(&self) -> euc::CoordinateMode {
-        let mut c = euc::CoordinateMode::default();
-        c.handedness = euc::Handedness::Left;
-        c
+    fn rasterizer_config(
+            &self,
+        ) -> <<Self::Primitives as euc::primitives::PrimitiveKind<Self::VertexData>>::Rasterizer as euc::rasterizer::Rasterizer>::Config {
+        CullMode::None
     }
 }
 
