@@ -236,7 +236,6 @@ impl Painter {
                 };
 
                 pipeline.render(
-                    //indices,
                     &mesh.indices,
                     &mut scissor,
                     &mut depth,
@@ -246,20 +245,6 @@ impl Painter {
 
         color
     }
-
-    /*
-    fn render_mesh(
-        &mut self,
-        mesh: &egui::Mesh,
-        pixels_per_point: f32,
-        color: &mut Buffer2d<u32>,
-        depth: &mut Buffer2d<f32>,
-        clip_rect: egui::Rect,
-    ) {
-        //let mut scissor = Scissor::new(&mut color, 100, 100, 100, 100);
-        
-    }
-    */
 }
 
 impl SoftwareTexture {
@@ -283,6 +268,8 @@ impl SoftwareTexture {
             return;
         }
 
+        self.options = delta.options;
+
         let [off_x, off_y] = delta.pos.unwrap_or([0, 0]);
 
         for y in 0..delta.image.width() {
@@ -296,11 +283,14 @@ impl SoftwareTexture {
     pub fn sampler<'a>(
         &'a self,
     ) -> Box<
-        dyn Sampler<2, Index = f32, Sample = egui::Rgba, Texture = Buffer2d<Rgba>>
+        dyn Sampler<2, Index = f32, Sample = egui::Rgba, Texture = &'a Buffer2d<Rgba>>
             + Send
             + Sync
             + 'a,
     > {
-        todo!()
+        match self.options.magnification {
+            egui::TextureFilter::Linear => Box::new((&self.pixels).linear()),
+            egui::TextureFilter::Nearest => Box::new((&self.pixels).nearest()),
+        }
     }
 }
