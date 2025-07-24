@@ -1,8 +1,8 @@
-use egui::{pos2, Vec2};
+use egui::{epaint::Hsva, pos2, Rgba, Vec2};
 use egui_euc::euc_to_egui_colorimage;
 
-const WIDTH: usize = 320;
-const HEIGHT: usize = 240;
+const WIDTH: usize = 640;
+const HEIGHT: usize = 480;
 
 fn main() -> anyhow::Result<()> {
     eframe::run_native(
@@ -16,6 +16,7 @@ fn main() -> anyhow::Result<()> {
 struct App {
     tex: egui::TextureId,
     sub: SubGui,
+    hsva: Hsva,
 }
 
 impl App {
@@ -34,6 +35,7 @@ impl App {
         Self {
             tex,
             sub: SubGui::new(),
+            hsva: Hsva::new(1., 1., 1., 1.),
         }
     }
 }
@@ -44,7 +46,7 @@ impl eframe::App for App {
             ui.label("hi");
 
             let (rect, _) = ui.allocate_exact_size(
-                Vec2::new(WIDTH as _, HEIGHT as _),
+                Vec2::new(WIDTH as _, HEIGHT as _) / ui.pixels_per_point(),
                 egui::Sense::click_and_drag(),
             );
 
@@ -65,19 +67,23 @@ impl eframe::App for App {
                 match event {
                     egui::Event::PointerMoved(pos) => {
                         *pos -= rect.min.to_vec2();
-                        //*pos = (pos.to_vec2() / ui.pixels_per_point()).to_pos2();
+                        *pos = (pos.to_vec2() * ui.pixels_per_point()).to_pos2();
                     },
                     egui::Event::PointerButton { pos, .. } => {
                         *pos -= rect.min.to_vec2();
+                        *pos = (pos.to_vec2() * ui.pixels_per_point()).to_pos2();
                     }
                     _ => (),
                 }
             }
 
+            //self.sub.egui_ctx.set_pixels_per_point(ui.pixels_per_point());
             let new_image = self.sub.update(raw_input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.strong("STRONG aura");
+                    ui.strong(format!("{}", ui.pixels_per_point()));
                     let _ = ui.button("This a buton");
+                    ui.color_edit_button_hsva(&mut self.hsva)
                 });
             });
 
