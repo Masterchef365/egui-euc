@@ -76,7 +76,6 @@ impl eframe::App for App {
 
             let new_image = self.sub.update(raw_input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::RED);
                     ui.strong("STRONG aura");
                     let _ = ui.button("This a buton");
                 });

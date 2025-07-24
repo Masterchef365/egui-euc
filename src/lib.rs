@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use egui::{
-    epaint, ClippedPrimitive, Color32, ImageData, Rgba, TextureFilter, TextureId, TextureOptions,
+    epaint, ClippedPrimitive, Color32, Rgba, TextureFilter, TextureId, TextureOptions,
     TextureWrapMode, TexturesDelta,
 };
 use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
@@ -44,6 +44,7 @@ impl From<epaint::Vertex> for EguiVertexData {
 pub struct EguiMeshEucPipeline<'r, S> {
     pub sampler: S,
     pub vertices: &'r [epaint::Vertex],
+    pub screen_size: [usize; 2],
 }
 
 impl<'r, S> Pipeline<'r> for EguiMeshEucPipeline<'r, S>
@@ -59,7 +60,8 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     #[inline(always)]
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         let vertex = self.vertices[*idx as usize];
-        let xyzw = [vertex.pos.x / 100.0, 1.0 - vertex.pos.y / 100.0, 0.0, 1.0];
+        let [width, height] = self.screen_size.map(|x| x as f32);
+        let xyzw = [2.0 * vertex.pos.x / width - 1.0, 2.0 * (1.0 - vertex.pos.y / height) - 1.0, 0.0, 1.0];
         (xyzw, vertex.into())
     }
 
@@ -257,6 +259,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.linear().tiled(),
+                            screen_size,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -264,6 +267,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.linear().clamped(),
+                            screen_size,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -271,6 +275,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.linear().mirrored(),
+                            screen_size,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -278,6 +283,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.nearest().tiled(),
+                            screen_size,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -285,6 +291,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.nearest().clamped(),
+                            screen_size,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -292,6 +299,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.nearest().mirrored(),
+                            screen_size,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
