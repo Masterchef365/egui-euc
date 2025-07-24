@@ -201,7 +201,7 @@ impl Painter {
             if let Some(texture) = self.textures.get_mut(id) {
                 texture.update(delta);
             } else {
-                if !delta.is_whole() {
+                if delta.is_whole() {
                     self.textures.insert(
                         id.clone(),
                         SoftwareTexture::new(delta.image.clone(), delta.options),
@@ -321,10 +321,11 @@ impl SoftwareTexture {
 
         let [off_x, off_y] = delta.pos.unwrap_or([0, 0]);
 
-        for y in 0..delta.image.width() {
-            for x in 0..delta.image.height() {
+        for y in 0..delta.image.height() {
+            for x in 0..delta.image.width() {
+                let sample = patch[(x, y)];
                 self.pixels
-                    .write(x + off_x, y + off_y, patch[(x, y)].into());
+                    .write(x + off_x, y + off_y, sample.into());
             }
         }
     }
