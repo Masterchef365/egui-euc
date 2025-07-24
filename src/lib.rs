@@ -174,6 +174,12 @@ pub struct Painter {
 }
 
 impl Painter {
+    pub fn new() -> Self {
+        Self {
+            textures: HashMap::new(),
+        }
+    }
+
     pub fn paint_and_update_textures(
         &mut self,
         textures_delta: &TexturesDelta,
@@ -348,4 +354,13 @@ impl SoftwareTexture {
         }
     }
     */
+}
+
+pub fn euc_to_egui_colorimage(euc: euc::Buffer2d<u32>) -> egui::ColorImage {
+    let pixels = euc.raw().iter().map(|px| {
+        let [r, g, b, a] = px.to_le_bytes();
+        egui::Color32::from_rgba_unmultiplied(r, g, b, a)
+    })
+    .collect();
+    egui::ColorImage::new(euc.size(), pixels)
 }

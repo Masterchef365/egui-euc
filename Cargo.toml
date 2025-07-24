@@ -11,9 +11,5 @@ bytemuck = "1.23.1"
 #egui-winit = { version = "0.32.0", default-features = false, features = ["links"] }
 
 [dev-dependencies]
-pixels = "0.15.0"
-env_logger = "0.10"
-error-iter = "0.4"
-log = "0.4"
-winit = "0.29"
-winit_input_helper = "0.15"
+eframe = "0.32.0"
+anyhow = "1"
