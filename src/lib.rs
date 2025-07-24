@@ -59,7 +59,7 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     #[inline(always)]
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         let vertex = self.vertices[*idx as usize];
-        let xyzw = [vertex.pos.x / 100.0, vertex.pos.y / 100.0, 0.0, 1.0];
+        let xyzw = [vertex.pos.x / 100.0, 1.0 - vertex.pos.y / 100.0, 0.0, 1.0];
         (xyzw, vertex.into())
     }
 
