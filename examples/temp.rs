@@ -43,20 +43,40 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("hi");
 
-            let (resp, painter) = ui.allocate_painter(
+            let (rect, _) = ui.allocate_exact_size(
                 Vec2::new(WIDTH as _, HEIGHT as _),
                 egui::Sense::click_and_drag(),
             );
-            painter.image(
+
+            ui.painter().image(
                 self.tex,
-                resp.rect,
+                rect,
                 egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
                 egui::Color32::WHITE,
             );
 
-            let raw_input = ctx.input(|r| r.raw.clone());
+            ui.painter().rect_stroke(rect, 0.0, egui::Stroke::new(1.0, egui::Color32::WHITE), egui::StrokeKind::Inside);
+
+            let mut raw_input = ctx.input(|r| r.raw.clone());
+
+
+            raw_input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(WIDTH as f32, HEIGHT as f32)));
+            for event in &mut raw_input.events {
+                match event {
+                    egui::Event::PointerMoved(pos) => {
+                        *pos -= rect.min.to_vec2();
+                        //*pos = (pos.to_vec2() / ui.pixels_per_point()).to_pos2();
+                    },
+                    egui::Event::PointerButton { pos, .. } => {
+                        *pos -= rect.min.to_vec2();
+                    }
+                    _ => (),
+                }
+            }
+
             let new_image = self.sub.update(raw_input, |ctx| {
                 egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.painter().rect_filled(ctx.screen_rect(), 0.0, egui::Color32::RED);
                     ui.strong("STRONG aura");
                     let _ = ui.button("This a buton");
                 });
@@ -88,6 +108,7 @@ impl SubGui {
         new_input: egui::RawInput,
         sub_gui: impl FnMut(&egui::Context),
     ) -> egui::ColorImage {
+
         let output = self.egui_ctx.run(new_input, sub_gui);
         let pixels_per_point = self.egui_ctx.pixels_per_point();
         let clipped_primitives = self.egui_ctx.tessellate(output.shapes, pixels_per_point);
