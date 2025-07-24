@@ -6,6 +6,7 @@ use egui::{
 };
 use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
 
+/// Egui vertex data which is algebraic (has Mul and Add)
 #[derive(Clone, Copy, Debug)]
 pub struct EguiVertexData {
     pub uv: egui::Pos2,
@@ -41,10 +42,16 @@ impl From<epaint::Vertex> for EguiVertexData {
     }
 }
 
+/// Euc Pipeline which can draw an egui mesh, using `sampler` as a texture.
 pub struct EguiMeshEucPipeline<'r, S> {
     pub sampler: S,
     pub vertices: &'r [epaint::Vertex],
     pub screen_size: [usize; 2],
+}
+
+pub fn egui_coord_to_ndc(pos: egui::Pos2, screen_size: [usize; 2]) -> [f32; 2] {
+    let [width, height] = screen_size.map(|x| x as f32);
+    [2.0 * pos.x / width - 1.0, 2.0 * (1.0 - pos.y / height) - 1.0]
 }
 
 impl<'r, S> Pipeline<'r> for EguiMeshEucPipeline<'r, S>
@@ -60,8 +67,8 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     #[inline(always)]
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         let vertex = self.vertices[*idx as usize];
-        let [width, height] = self.screen_size.map(|x| x as f32);
-        let xyzw = [2.0 * vertex.pos.x / width - 1.0, 2.0 * (1.0 - vertex.pos.y / height) - 1.0, 0.0, 1.0];
+        let [x, y] = egui_coord_to_ndc(vertex.pos, self.screen_size);
+        let xyzw = [x, y, 0.0, 1.0];
         (xyzw, vertex.into())
     }
 
@@ -86,12 +93,14 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     }
 }
 
+/// Wrapper of a euc::Target, reads are unaffected but writes are clipped
+/// by the given rectangle. 
 pub struct Scissor<T> {
-    inner: T,
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
+    pub inner: T,
+    pub x: usize,
+    pub y: usize,
+    pub width: usize,
+    pub height: usize,
 }
 
 impl<T> Scissor<T> {
@@ -178,6 +187,7 @@ struct SoftwareTexture {
     options: egui::TextureOptions,
 }
 
+/// A persistent object which tracks textures and can render an image from clipped primitives.
 pub struct Painter {
     textures: HashMap<TextureId, SoftwareTexture>,
 }

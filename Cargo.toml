@@ -13,3 +13,4 @@ bytemuck = "1.23.1"
 [dev-dependencies]
 eframe = "0.32.0"
 anyhow = "1"
+egui_demo_lib = "0.32.0"

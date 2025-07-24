@@ -1,4 +1,4 @@
-use egui::{epaint::Hsva, pos2, Rgba, Vec2};
+use egui::{pos2, Vec2};
 use egui_euc::euc_to_egui_colorimage;
 
 const WIDTH: usize = 640;
@@ -16,7 +16,7 @@ fn main() -> anyhow::Result<()> {
 struct App {
     tex: egui::TextureId,
     sub: SubGui,
-    hsva: Hsva,
+    demo: egui_demo_lib::DemoWindows,
 }
 
 impl App {
@@ -33,9 +33,9 @@ impl App {
             .alloc("sub-gui".into(), image, options);
 
         Self {
+            demo: Default::default(),
             tex,
             sub: SubGui::new(),
-            hsva: Hsva::new(1., 1., 1., 1.),
         }
     }
 }
@@ -62,7 +62,7 @@ impl eframe::App for App {
             let mut raw_input = ctx.input(|r| r.raw.clone());
 
 
-            raw_input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(WIDTH as f32, HEIGHT as f32)));
+            //raw_input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(WIDTH as f32, HEIGHT as f32)));
             for event in &mut raw_input.events {
                 match event {
                     egui::Event::PointerMoved(pos) => {
@@ -79,12 +79,7 @@ impl eframe::App for App {
 
             //self.sub.egui_ctx.set_pixels_per_point(ui.pixels_per_point());
             let new_image = self.sub.update(raw_input, |ctx| {
-                egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.strong("STRONG aura");
-                    ui.strong(format!("{}", ui.pixels_per_point()));
-                    let _ = ui.button("This a buton");
-                    ui.color_edit_button_hsva(&mut self.hsva)
-                });
+                self.demo.ui(ctx);
             });
 
             ui.ctx().tex_manager().write().set(
