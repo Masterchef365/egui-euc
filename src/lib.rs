@@ -47,8 +47,8 @@ pub struct EguiMeshEucPipeline<'r, S> {
 }
 
 impl<'r, S> Pipeline<'r> for EguiMeshEucPipeline<'r, S>
-//where
-//S: Sampler<2, Index = f32, Sample = egui::Rgba>,
+where
+S: Sampler<2, Index = f32, Sample = egui::Rgba>,
 {
     type Vertex = u32;
     type VertexData = EguiVertexData;
@@ -65,10 +65,17 @@ impl<'r, S> Pipeline<'r> for EguiMeshEucPipeline<'r, S>
 
     #[inline(always)]
     fn fragment(&self, color: Self::VertexData) -> Self::Fragment {
-        color.color
+        color.color * self.sampler.sample([color.uv.x, color.uv.y])
     }
 
-    fn blend(&self, _: Self::Pixel, color: Self::Fragment) -> Self::Pixel {
+    fn blend(&self, screen: Self::Pixel, fragment: Self::Fragment) -> Self::Pixel {
+        let [r, g, b, a] = screen.to_le_bytes();
+        let screen = Color32::from_rgba_premultiplied(r, g, b, a);
+        let screen: Rgba = screen.into();
+
+        let mut color = fragment + screen * (1.0 - fragment.a());
+        color[3] = screen.a() + fragment.a() * (1.0 - screen.a());
+
         u32::from_le_bytes(color.to_srgba_unmultiplied())
     }
 
