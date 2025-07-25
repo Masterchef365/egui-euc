@@ -1,5 +1,5 @@
 use egui::{pos2, Vec2};
-use egui_euc::euc_to_egui_colorimage;
+use egui_euc::SoftwareGui;
 
 const WIDTH: usize = 1640;
 const HEIGHT: usize = 1480;
@@ -15,7 +15,7 @@ fn main() -> anyhow::Result<()> {
 
 struct App {
     tex: egui::TextureId,
-    sub: SubGui,
+    sub: SoftwareGui,
     demo: egui_demo_lib::DemoWindows,
 }
 
@@ -35,7 +35,7 @@ impl App {
         Self {
             demo: Default::default(),
             tex,
-            sub: SubGui::new(),
+            sub: SoftwareGui::new(),
         }
     }
 }
@@ -76,7 +76,7 @@ impl eframe::App for App {
             }
 
             //self.sub.egui_ctx.set_pixels_per_point(ui.pixels_per_point());
-            let new_image = self.sub.update(raw_input, |ctx| {
+            let new_image = self.sub.update(raw_input, [WIDTH, HEIGHT], |ctx| {
                 self.demo.ui(ctx);
             });
 
@@ -85,37 +85,5 @@ impl eframe::App for App {
                 egui::epaint::ImageDelta::full(new_image, egui::TextureOptions::NEAREST),
             );
         });
-    }
-}
-
-struct SubGui {
-    egui_ctx: egui::Context,
-    software_render: egui_euc::Painter,
-}
-
-impl SubGui {
-    pub fn new() -> Self {
-        Self {
-            egui_ctx: Default::default(),
-            software_render: egui_euc::Painter::new(),
-        }
-    }
-
-    pub fn update(
-        &mut self,
-        new_input: egui::RawInput,
-        sub_gui: impl FnMut(&egui::Context),
-    ) -> egui::ColorImage {
-
-        let output = self.egui_ctx.run(new_input, sub_gui);
-        let pixels_per_point = self.egui_ctx.pixels_per_point();
-        let clipped_primitives = self.egui_ctx.tessellate(output.shapes, pixels_per_point);
-        let buffer = self.software_render.paint_and_update_textures(
-            &output.textures_delta,
-            &clipped_primitives,
-            pixels_per_point,
-            [WIDTH, HEIGHT],
-        );
-        euc_to_egui_colorimage(buffer)
     }
 }

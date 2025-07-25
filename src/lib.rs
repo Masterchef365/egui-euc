@@ -356,32 +356,6 @@ impl SoftwareTexture {
             }
         }
     }
-
-    /*
-    pub fn sampler<'a>(
-        &'a self,
-    ) -> Box<
-        dyn Sampler<2, Index = f32, Sample = egui::Rgba, Texture = &'a Buffer2d<Rgba>>
-            + Send
-            + Sync
-            + 'a,
-    > {
-        // TODO: Support minification?
-        let magnified: Box<
-        dyn Sampler<2, Index = f32, Sample = egui::Rgba, Texture = &'a Buffer2d<Rgba>>
-            + Send
-            + Sync
-            + 'a,
-    > = match self.options.magnification {
-            egui::TextureFilter::Linear => Box::new((&self.pixels).linear()),
-            egui::TextureFilter::Nearest => Box::new((&self.pixels).nearest()),
-        };
-
-        match self.options.wrap_mode {
-            egui::TextureWrapMode::Repeat => Box::new(magnified.tiled()),
-        }
-    }
-    */
 }
 
 pub fn euc_to_egui_colorimage(euc: euc::Buffer2d<u32>) -> egui::ColorImage {
@@ -391,4 +365,38 @@ pub fn euc_to_egui_colorimage(euc: euc::Buffer2d<u32>) -> egui::ColorImage {
     })
     .collect();
     egui::ColorImage::new(euc.size(), pixels)
+}
+
+/// Helper to provide an image given successive egui::RawInputs
+pub struct SoftwareGui {
+    pub egui_ctx: egui::Context,
+    pub software_render: Painter,
+}
+
+impl SoftwareGui {
+    pub fn new() -> Self {
+        Self {
+            egui_ctx: Default::default(),
+            software_render: Painter::new(),
+        }
+    }
+
+    pub fn update(
+        &mut self,
+        new_input: egui::RawInput,
+        screen_size: [usize; 2],
+        sub_gui: impl FnMut(&egui::Context),
+    ) -> egui::ColorImage {
+
+        let output = self.egui_ctx.run(new_input, sub_gui);
+        let pixels_per_point = self.egui_ctx.pixels_per_point();
+        let clipped_primitives = self.egui_ctx.tessellate(output.shapes, pixels_per_point);
+        let buffer = self.software_render.paint_and_update_textures(
+            &output.textures_delta,
+            &clipped_primitives,
+            pixels_per_point,
+            screen_size,
+        );
+        euc_to_egui_colorimage(buffer)
+    }
 }
