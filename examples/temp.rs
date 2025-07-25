@@ -61,8 +61,8 @@ impl eframe::App for App {
 
             let mut raw_input = ctx.input(|r| r.raw.clone());
 
+            raw_input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(WIDTH as f32, HEIGHT as f32) / ui.pixels_per_point()));
 
-            //raw_input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(WIDTH as f32, HEIGHT as f32)));
             for event in &mut raw_input.events {
                 match event {
                     egui::Event::PointerMoved(pos) => {
