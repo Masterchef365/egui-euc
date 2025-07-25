@@ -1,8 +1,8 @@
 use egui::{pos2, Vec2};
 use egui_euc::euc_to_egui_colorimage;
 
-const WIDTH: usize = 640;
-const HEIGHT: usize = 480;
+const WIDTH: usize = 1640;
+const HEIGHT: usize = 1480;
 
 fn main() -> anyhow::Result<()> {
     eframe::run_native(

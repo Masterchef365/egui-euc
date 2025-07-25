@@ -145,7 +145,7 @@ impl<T> Scissor<T> {
         Self::new(
             inner,
             clip_min_x as usize,
-            (height_px as i32 - clip_max_y).max(0) as usize,
+            clip_min_y as usize,
             (clip_max_x - clip_min_x).max(0) as usize,
             (clip_max_y - clip_min_y).max(0) as usize,
         )
