@@ -67,11 +67,9 @@ impl eframe::App for App {
                 match event {
                     egui::Event::PointerMoved(pos) => {
                         *pos -= rect.min.to_vec2();
-                        *pos = (pos.to_vec2() * ui.pixels_per_point()).to_pos2();
                     },
                     egui::Event::PointerButton { pos, .. } => {
                         *pos -= rect.min.to_vec2();
-                        *pos = (pos.to_vec2() * ui.pixels_per_point()).to_pos2();
                     }
                     _ => (),
                 }

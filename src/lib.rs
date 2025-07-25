@@ -46,12 +46,12 @@ impl From<epaint::Vertex> for EguiVertexData {
 pub struct EguiMeshEucPipeline<'r, S> {
     pub sampler: S,
     pub vertices: &'r [epaint::Vertex],
-    pub screen_size: [usize; 2],
+    pub screen_size_points: egui::Vec2,
 }
 
-pub fn egui_coord_to_ndc(pos: egui::Pos2, screen_size: [usize; 2]) -> [f32; 2] {
-    let [width, height] = screen_size.map(|x| x as f32);
-    [2.0 * pos.x / width - 1.0, 2.0 * (1.0 - pos.y / height) - 1.0]
+pub fn egui_coord_to_ndc(pos: egui::Pos2, screen_size: egui::Vec2) -> [f32; 2] {
+    let transf = 2.0 * pos.to_vec2() / screen_size;
+    [transf.x - 1.0, 1.0 - transf.y]
 }
 
 impl<'r, S> Pipeline<'r> for EguiMeshEucPipeline<'r, S>
@@ -67,7 +67,7 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     #[inline(always)]
     fn vertex(&self, idx: &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         let vertex = self.vertices[*idx as usize];
-        let [x, y] = egui_coord_to_ndc(vertex.pos, self.screen_size);
+        let [x, y] = egui_coord_to_ndc(vertex.pos, self.screen_size_points);
         let xyzw = [x, y, 0.0, 1.0];
         (xyzw, vertex.into())
     }
@@ -263,13 +263,15 @@ impl Painter {
 
                 let pixels = &texture.pixels;
 
+                let screen_size_points = egui::Vec2::new(screen_size[0] as f32, screen_size[1] as f32) / pixels_per_point;
+
                 // TODO: This dumb as HELL
                 match (texture.options.magnification, texture.options.wrap_mode) {
                     (TextureFilter::Linear, TextureWrapMode::Repeat) => {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.linear().tiled(),
-                            screen_size,
+                            screen_size_points,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -277,7 +279,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.linear().clamped(),
-                            screen_size,
+                            screen_size_points,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -285,7 +287,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.linear().mirrored(),
-                            screen_size,
+                            screen_size_points,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -293,7 +295,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.nearest().tiled(),
-                            screen_size,
+                            screen_size_points,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -301,7 +303,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.nearest().clamped(),
-                            screen_size,
+                            screen_size_points,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
@@ -309,7 +311,7 @@ impl Painter {
                         EguiMeshEucPipeline {
                             vertices: &mesh.vertices,
                             sampler: pixels.nearest().mirrored(),
-                            screen_size,
+                            screen_size_points,
                         }
                         .render(&mesh.indices, &mut scissor, &mut depth);
                     }
