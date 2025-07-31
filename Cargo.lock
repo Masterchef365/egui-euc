@@ -823,6 +823,8 @@ dependencies = [
  "egui",
  "egui_demo_lib",
  "euc",
+ "hashbrown",
+ "num-traits",
 ]
 
 [[package]]

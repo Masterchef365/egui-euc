@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+#![no_std]
 
 use egui::{
     epaint, ClippedPrimitive, Color32, Rgba, TextureFilter, TextureId, TextureOptions,
     TextureWrapMode, TexturesDelta,
 };
 use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
+use hashbrown::HashMap;
+use num_traits::Float;
 
 /// Egui vertex data which is algebraic (has Mul and Add)
 #[derive(Clone, Copy, Debug)]
@@ -13,7 +15,7 @@ pub struct EguiVertexData {
     pub color: egui::Rgba,
 }
 
-impl std::ops::Mul<f32> for EguiVertexData {
+impl core::ops::Mul<f32> for EguiVertexData {
     type Output = Self;
     fn mul(self, rhs: f32) -> Self::Output {
         Self {
@@ -23,7 +25,7 @@ impl std::ops::Mul<f32> for EguiVertexData {
     }
 }
 
-impl std::ops::Add<Self> for EguiVertexData {
+impl core::ops::Add<Self> for EguiVertexData {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
         Self {
@@ -400,3 +402,5 @@ impl SoftwareGui {
         euc_to_egui_colorimage(buffer)
     }
 }
+
+

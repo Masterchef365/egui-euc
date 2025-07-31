@@ -12,6 +12,9 @@ euc = { git = "https://github.com/zesterer/euc.git", rev = "e8f7aee", default-fe
 egui = "0.32.0"
 bytemuck = "1.23.1"
 
+hashbrown = { version = "0.15", default-features = false, features = ["default-hasher"] }
+num-traits = { version = "0.2", default-features = false, features = ["libm"] }
+
 [dev-dependencies]
 eframe = "0.32.0"
 anyhow = "1"
