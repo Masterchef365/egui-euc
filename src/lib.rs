@@ -390,8 +390,7 @@ impl SoftwareTexture {
                 let sample = patch[(x, y)];
                 let xf = x + off_x;
                 let yf = y + off_y;
-                let idx = xf + yf * delta.image.width();
-                *self.pixels.0.pixels.to_mut().get_mut(idx).unwrap() = sample;
+                self.pixels.0[(xf, yf)] = sample;
             }
         }
     }
