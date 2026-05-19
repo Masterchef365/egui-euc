@@ -63,7 +63,7 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     type Vertex = u32;
     type VertexData = EguiVertexData;
     type Primitives = TriangleList;
-    type Pixel = u32;
+    type Pixel = Algebra565;
     type Fragment = Rgba;
 
     #[inline(always)]
@@ -80,14 +80,12 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     }
 
     fn blend(&self, screen: Self::Pixel, fragment: Self::Fragment) -> Self::Pixel {
-        let [r, g, b, a] = screen.to_le_bytes();
-        let screen = Color32::from_rgba_premultiplied(r, g, b, a);
-        let screen: Rgba = screen.into();
+        let [b, g, r] = screen.to_bgrf();
+        let screen = Rgba::from_rgb(r, g, b);
 
-        let mut color = fragment + screen * (1.0 - fragment.a());
-        color[3] = screen.a() + fragment.a() * (1.0 - screen.a());
+        let color = fragment + screen * (1.0 - fragment.a());
 
-        u32::from_le_bytes(color.to_srgba_unmultiplied())
+        Algebra565::from_bgrf([color.b(), color.g(), color.r()])
     }
 
     fn rasterizer_config(&self) -> CullMode {
@@ -207,14 +205,13 @@ impl Painter {
         clipped_primitives: &[ClippedPrimitive],
         pixels_per_point: f32,
         screen_size: [usize; 2],
-    ) -> euc::Buffer2d<u32> {
+        color: &mut Buffer2d<Algebra565>,
+    ) {
         self.allocate_textures(textures_delta);
 
-        let image = self.render(clipped_primitives, pixels_per_point, screen_size);
+        self.render(clipped_primitives, pixels_per_point, screen_size, color);
 
         self.free_textures(textures_delta);
-
-        image
     }
 
     fn allocate_textures(&mut self, textures_delta: &TexturesDelta) {
@@ -245,14 +242,14 @@ impl Painter {
         clipped_primitives: &[ClippedPrimitive],
         pixels_per_point: f32,
         screen_size: [usize; 2],
-    ) -> Buffer2d<u32> {
-        let mut color = Buffer2d::fill(screen_size, 0);
-        let mut depth = Buffer2d::fill(screen_size, 1.0);
+        color: &mut Buffer2d<Algebra565>,
+    ) {
+        let mut depth = Buffer2d::fill([1,1], 1.0);
 
         for item in clipped_primitives {
             if let epaint::Primitive::Mesh(mesh) = &item.primitive {
                 let mut scissor = Scissor::from_clip_rect(
-                    &mut color,
+                    &mut *color,
                     screen_size,
                     pixels_per_point,
                     item.clip_rect,
@@ -320,8 +317,6 @@ impl Painter {
                 };
             }
         }
-
-        color
     }
 }
 
@@ -388,19 +383,95 @@ impl SoftwareGui {
         new_input: egui::RawInput,
         screen_size: [usize; 2],
         sub_gui: impl FnMut(&egui::Context),
-    ) -> egui::ColorImage {
-
+        color: &mut Buffer2d<Algebra565>,
+    ) {
         let output = self.egui_ctx.run(new_input, sub_gui);
         let pixels_per_point = self.egui_ctx.pixels_per_point();
         let clipped_primitives = self.egui_ctx.tessellate(output.shapes, pixels_per_point);
-        let buffer = self.software_render.paint_and_update_textures(
+        self.software_render.paint_and_update_textures(
             &output.textures_delta,
             &clipped_primitives,
             pixels_per_point,
             screen_size,
+            color,
         );
-        euc_to_egui_colorimage(buffer)
     }
 }
 
 
+#[derive(Copy, Clone, Default)]
+pub struct Algebra565 {
+    pub bits: u16,
+}
+
+fn float_to_bits(value: f32, nbits: u8) -> u16 {
+    let maxval = ((1u16 << nbits) - 1) as f32;
+    (value.clamp(0.0, 1.0) * maxval).floor() as u16
+}
+
+fn bits_to_float(bits: u16, nbits: u8) -> f32 {
+    let maxval = ((1u16 << nbits) - 1) as f32;
+    bits as f32 / maxval
+}
+
+fn extract_bits_range(bits: u16, nbits: u8, position: u8) -> u16 {
+    (bits >> position) & ((1 << nbits) - 1)
+}
+
+impl Algebra565 {
+    pub const RED: Self = Self { bits: 0b1111100000000000 };
+    pub const GREEN: Self = Self { bits: 0b0000011111100000 };
+    pub const BLUE: Self = Self { bits: 0b0000000000011111 };
+    pub const CYAN: Self = Self { bits: 0b0000011111111111 };
+    pub const YELLOW: Self = Self { bits: 0b1111111111000000 };
+    pub const MAGENTA: Self = Self { bits: 0b1111100000011111 };
+
+    pub fn new(bits: u16) -> Self {
+        Self { bits }
+    }
+
+    pub fn to_bgrf(&self) -> [f32; 3] {
+        [
+            bits_to_float(extract_bits_range(self.bits, 5, 0), 5),
+            bits_to_float(extract_bits_range(self.bits, 6, 5), 6),
+            bits_to_float(extract_bits_range(self.bits, 5, 6+5), 5),
+        ]
+    }
+
+    pub fn from_bgrf([b, g, r]: [f32; 3]) -> Self {
+        let mut bits = 0;
+        bits |= float_to_bits(b, 5);
+        bits |= float_to_bits(g, 6) << 5;
+        bits |= float_to_bits(r, 5) << (5+6);
+        Self { bits }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_algebra565_roundtrip() {
+    assert_eq!(Algebra565::from_bgrf([1., 0., 0.]).to_bgrf(), [1.0, 0.0, 0.0]);
+    assert_eq!(Algebra565::from_bgrf([0., 1., 0.]).to_bgrf(), [0.0, 1.0, 0.0]);
+    assert_eq!(Algebra565::from_bgrf([0., 0., 1.]).to_bgrf(), [0.0, 0.0, 1.0]);
+
+    assert_eq!(Algebra565::from_bgrf([15.0/31.0, 19.0/63.0, 19.0/31.0]).to_bgrf(), [15.0/31.0, 19.0/63.0, 19.0/31.0]);
+}
+
+impl euc::math::WeightedSum for Algebra565 {
+    fn weighted_sum<const N: usize>(
+        values: [Self; N],
+        weights: [f32; N],
+    ) -> Self {
+        let mut sum = [0_f32; 3];
+
+        for i in 0..N {
+            let bgr = values[i].to_bgrf();
+
+            for j in 0..3 {
+                sum[j] += bgr[j] * weights[i];
+            }
+        }
+
+        Self::from_bgrf(sum)
+    }
+}
