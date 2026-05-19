@@ -19,3 +19,8 @@ num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 eframe = "0.32.0"
 anyhow = "1"
 egui_demo_lib = "0.32.0"
+
+
+[patch.crates-io]
+egui = { path = "../egui/crates/egui/" }
+

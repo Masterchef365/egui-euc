@@ -1,8 +1,7 @@
 #![no_std]
 
 use egui::{
-    epaint, ClippedPrimitive, Color32, Rgba, TextureFilter, TextureId, TextureOptions,
-    TextureWrapMode, TexturesDelta,
+    ClippedPrimitive, Color32, ImageSource, Rgba, TextureFilter, TextureId, TextureOptions, TextureWrapMode, TexturesDelta, epaint
 };
 use euc::{Buffer2d, CullMode, Pipeline, Sampler, Target, Texture, TriangleList};
 use hashbrown::HashMap;
@@ -390,7 +389,9 @@ impl SoftwareTexture {
                 let sample = patch[(x, y)];
                 let xf = x + off_x;
                 let yf = y + off_y;
-                self.pixels.0[(xf, yf)] = sample;
+                if let egui::epaint::image::ImageStorage::Owned(_) = &self.pixels.0.pixels {
+                    self.pixels.0[(xf, yf)] = sample;
+                }
             }
         }
     }

@@ -4274,3 +4274,7 @@ dependencies = [
  "syn",
  "winnow",
 ]
+
+[[patch.unused]]
+name = "egui"
+version = "0.32.0"
