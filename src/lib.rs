@@ -182,8 +182,48 @@ impl<T: Target> Target for Scissor<T> {
     }
 }
 
+struct ColorImageTexture(egui::ColorImage);
+
+impl Texture<2> for ColorImageTexture {
+    type Index = usize;
+
+    type Texel = egui::Rgba;
+
+    #[inline]
+    fn size(&self) -> [Self::Index; 2] {
+        //self.0.;
+        todo!()
+    }
+
+    #[inline]
+    fn read(&self, index: [Self::Index; 2]) -> Self::Texel {
+        self.0.pixels[index[0] + index[1] * self.0.width()].into()
+        /*
+        let item = self.items.get(self.linear_index(index)).unwrap_or_else(|| {
+            panic!(
+                "Attempted to read buffer of size {:?} at out-of-bounds location {:?}",
+                self.size(),
+                index
+            )
+        });
+        // SAFETY: Invariants can only be violated by `write_exclusive_unchecked`
+        unsafe { (*item.get()).clone() }
+        */
+    }
+
+    #[inline(always)]
+    unsafe fn read_unchecked(&self, index: [Self::Index; 2]) -> Self::Texel {
+        //let item = self.items.get_unchecked(self.linear_index(index));
+        // SAFETY: Invariants can only be violated by `write_exclusive_unchecked`
+        //unsafe { (*item.get()).clone() }
+        todo!()
+    }
+
+}
+
+
 struct SoftwareTexture {
-    pixels: euc::Buffer2d<egui::Rgba>,
+    pixels: ColorImageTexture,
     options: egui::TextureOptions,
 }
 
@@ -201,28 +241,28 @@ impl Painter {
 
     pub fn paint_and_update_textures(
         &mut self,
-        textures_delta: &TexturesDelta,
+        mut textures_delta: TexturesDelta,
         clipped_primitives: &[ClippedPrimitive],
         pixels_per_point: f32,
         screen_size: [usize; 2],
         color: &mut Buffer2d<Algebra565>,
     ) {
-        self.allocate_textures(textures_delta);
+        self.allocate_textures(&mut textures_delta);
 
         self.render(clipped_primitives, pixels_per_point, screen_size, color);
 
-        self.free_textures(textures_delta);
+        self.free_textures(&mut textures_delta);
     }
 
-    fn allocate_textures(&mut self, textures_delta: &TexturesDelta) {
-        for (id, delta) in &textures_delta.set {
-            if let Some(texture) = self.textures.get_mut(id) {
-                texture.update(delta);
+    fn allocate_textures(&mut self, textures_delta: &mut TexturesDelta) {
+        for (id, delta) in textures_delta.set.drain(..) {
+            if let Some(texture) = self.textures.get_mut(&id) {
+                texture.update(&delta);
             } else {
                 if delta.is_whole() {
                     self.textures.insert(
                         id.clone(),
-                        SoftwareTexture::new(delta.image.clone(), delta.options),
+                        SoftwareTexture::new(delta.image, delta.options),
                     );
                 } else {
                     panic!("Attempted partial update on absent texture")
@@ -231,9 +271,9 @@ impl Painter {
         }
     }
 
-    fn free_textures(&mut self, textures_delta: &TexturesDelta) {
-        for id in &textures_delta.free {
-            self.textures.remove(id);
+    fn free_textures(&mut self, textures_delta: &mut TexturesDelta) {
+        for id in textures_delta.free.drain(..) {
+            self.textures.remove(&id);
         }
     }
 
@@ -322,11 +362,11 @@ impl Painter {
 
 impl SoftwareTexture {
     pub fn new(image: epaint::ImageData, options: TextureOptions) -> Self {
-        let pixels = Buffer2d::fill([image.width(), image.height()], Rgba::RED);
+        let epaint::ImageData::Color(data) = &image;
+
+        let mut inst = Self { pixels: ColorImageTexture(data.as_ref().clone()), options };
 
         let delta = epaint::ImageDelta::full(image, options);
-
-        let mut inst = Self { pixels, options };
 
         inst.update(&delta);
 
@@ -348,8 +388,10 @@ impl SoftwareTexture {
         for y in 0..delta.image.height() {
             for x in 0..delta.image.width() {
                 let sample = patch[(x, y)];
-                self.pixels
-                    .write(x + off_x, y + off_y, sample.into());
+                let xf = x + off_x;
+                let yf = y + off_y;
+                let idx = xf + yf * delta.image.width();
+                *self.pixels.0.pixels.to_mut().get_mut(idx).unwrap() = sample;
             }
         }
     }
@@ -389,7 +431,7 @@ impl SoftwareGui {
         let pixels_per_point = self.egui_ctx.pixels_per_point();
         let clipped_primitives = self.egui_ctx.tessellate(output.shapes, pixels_per_point);
         self.software_render.paint_and_update_textures(
-            &output.textures_delta,
+            output.textures_delta,
             &clipped_primitives,
             pixels_per_point,
             screen_size,
