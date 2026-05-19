@@ -419,6 +419,7 @@ fn extract_bits_range(bits: u16, nbits: u8, position: u8) -> u16 {
 }
 
 impl Algebra565 {
+    pub const BLACK: Self = Self { bits: 0b1111100000000000 };
     pub const RED: Self = Self { bits: 0b1111100000000000 };
     pub const GREEN: Self = Self { bits: 0b0000011111100000 };
     pub const BLUE: Self = Self { bits: 0b0000000000011111 };
