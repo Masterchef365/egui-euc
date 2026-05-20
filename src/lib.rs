@@ -74,8 +74,8 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     }
 
     #[inline(always)]
-    fn fragment(&self, color: Self::VertexData) -> Self::Fragment {
-        color.color * self.sampler.sample([color.uv.x, color.uv.y])
+    fn fragment(&self, vd: Self::VertexData) -> Self::Fragment {
+        vd.color * self.sampler.sample([vd.uv.x, vd.uv.y])
     }
 
     fn blend(&self, screen: Self::Pixel, fragment: Self::Fragment) -> Self::Pixel {
