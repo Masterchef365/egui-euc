@@ -363,11 +363,11 @@ impl SoftwareTexture {
     pub fn new(image: epaint::ImageData, options: TextureOptions) -> Self {
         let epaint::ImageData::Color(data) = &image;
 
-        let mut inst = Self { pixels: ColorImageTexture(data.as_ref().clone()), options };
+        let inst = Self { pixels: ColorImageTexture(data.as_ref().clone()), options };
 
-        let delta = epaint::ImageDelta::full(image, options);
+        //let delta = epaint::ImageDelta::full(image, options);
 
-        inst.update(&delta);
+        //inst.update(&delta);
 
         inst
     }
@@ -384,12 +384,12 @@ impl SoftwareTexture {
 
         let [off_x, off_y] = delta.pos.unwrap_or([0, 0]);
 
-        for y in 0..delta.image.height() {
-            for x in 0..delta.image.width() {
-                let sample = patch[(x, y)];
-                let xf = x + off_x;
-                let yf = y + off_y;
-                if let egui::epaint::image::ImageStorage::Owned(_) = &self.pixels.0.pixels {
+        if let egui::epaint::image::ImageStorage::Owned(_) = &self.pixels.0.pixels {
+            for y in 0..delta.image.height() {
+                for x in 0..delta.image.width() {
+                    let sample = patch[(x, y)];
+                    let xf = x + off_x;
+                    let yf = y + off_y;
                     self.pixels.0[(xf, yf)] = sample;
                 }
             }
