@@ -195,27 +195,13 @@ impl Texture<2> for ColorImageTexture {
 
     #[inline]
     fn read(&self, index: [Self::Index; 2]) -> Self::Texel {
-        self.0.pixels[index[0] + index[1] * self.0.width()].into()
-        /*
-        let item = self.items.get(self.linear_index(index)).unwrap_or_else(|| {
-            panic!(
-                "Attempted to read buffer of size {:?} at out-of-bounds location {:?}",
-                self.size(),
-                index
-            )
-        });
-        // SAFETY: Invariants can only be violated by `write_exclusive_unchecked`
-        unsafe { (*item.get()).clone() }
-        */
+        self.0[(index[0], index[1])].into()
     }
 
     #[inline(always)]
     unsafe fn read_unchecked(&self, index: [Self::Index; 2]) -> Self::Texel {
-        self.0.pixels[index[0] + index[1] * self.0.width()].into()
-        //let item = self.items.get_unchecked(self.linear_index(index));
-        // SAFETY: Invariants can only be violated by `write_exclusive_unchecked`
-        //unsafe { (*item.get()).clone() }
-        //todo!()
+        // TODO: unchecked
+        self.0[(index[0], index[1])].into()
     }
 
 }
