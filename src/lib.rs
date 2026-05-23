@@ -230,13 +230,15 @@ impl Painter {
         clipped_primitives: &[ClippedPrimitive],
         pixels_per_point: f32,
         screen_size: [usize; 2],
-        color: &mut Buffer2d<Algebra565>,
-    ) {
+    ) -> euc::Buffer<Algebra565, 2> {
         self.allocate_textures(&mut textures_delta);
 
-        self.render(clipped_primitives, pixels_per_point, screen_size, color);
+        let mut color: Buffer2d<Algebra565> = Buffer2d::fill(screen_size, Algebra565::BLACK);
+        self.render(clipped_primitives, pixels_per_point, screen_size, &mut color);
 
         self.free_textures(&mut textures_delta);
+
+        color
     }
 
     fn allocate_textures(&mut self, textures_delta: &mut TexturesDelta) {
@@ -411,18 +413,23 @@ impl SoftwareGui {
         new_input: egui::RawInput,
         screen_size: [usize; 2],
         sub_gui: impl FnMut(&egui::Context),
-        color: &mut Buffer2d<Algebra565>,
-    ) {
-        let output = self.egui_ctx.run(new_input, sub_gui);
+    ) -> Buffer2d<Algebra565> {
+        let (shapes, textures_delta);
+        {
+            let output = self.egui_ctx.run(new_input, sub_gui);
+            shapes = output.shapes;
+            textures_delta = output.textures_delta;
+        }
+
         let pixels_per_point = self.egui_ctx.pixels_per_point();
-        let clipped_primitives = self.egui_ctx.tessellate(output.shapes, pixels_per_point);
+        let clipped_primitives = self.egui_ctx.tessellate(shapes, pixels_per_point);
+
         self.software_render.paint_and_update_textures(
-            output.textures_delta,
+            textures_delta,
             &clipped_primitives,
             pixels_per_point,
             screen_size,
-            color,
-        );
+        )
     }
 }
 
