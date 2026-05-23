@@ -230,15 +230,23 @@ impl Painter {
         clipped_primitives: &[ClippedPrimitive],
         pixels_per_point: f32,
         screen_size: [usize; 2],
-    ) -> euc::Buffer<Algebra565, 2> {
+        tile_size: usize,
+        mut draw_colors: impl FnMut(usize, usize, usize, usize, &Buffer2d<Algebra565>),
+    ) {
         self.allocate_textures(&mut textures_delta);
 
-        let mut color: Buffer2d<Algebra565> = Buffer2d::fill(screen_size, Algebra565::BLACK);
-        self.render(clipped_primitives, pixels_per_point, screen_size, &mut color);
+        let mut color: Buffer2d<Algebra565> = Buffer2d::fill([tile_size; 2], Algebra565::BLACK);
+
+        for x in (0..screen_size[0]).step_by(tile_size) {
+            for y in (0..screen_size[1]).step_by(tile_size) {
+                let [ex, ey] = self.render(clipped_primitives, pixels_per_point, screen_size, [x, y], &mut color);
+                draw_colors(x, y, ex, ey, &color);
+            }
+        }
+
+        drop(color);
 
         self.free_textures(&mut textures_delta);
-
-        color
     }
 
     fn allocate_textures(&mut self, textures_delta: &mut TexturesDelta) {
@@ -269,9 +277,17 @@ impl Painter {
         clipped_primitives: &[ClippedPrimitive],
         pixels_per_point: f32,
         screen_size: [usize; 2],
+        buf_offset: [usize; 2],
         color: &mut Buffer2d<Algebra565>,
-    ) {
+    ) -> [usize; 2] {
         let mut depth = Buffer2d::fill([1,1], 1.0);
+
+        let clip_min = buf_offset;
+        let buf_size = color.size(); 
+        let mut clip_max = [0, 0];
+        for i in 0..2 {
+            clip_max[i] = (clip_min[i] + buf_size[i]).min(screen_size[i]);
+        }
 
         for item in clipped_primitives {
             if let epaint::Primitive::Mesh(mesh) = &item.primitive {
@@ -281,6 +297,11 @@ impl Painter {
                     pixels_per_point,
                     item.clip_rect,
                 );
+
+                scissor.x = scissor.x.max(clip_min[0]);
+                scissor.y = scissor.y.max(clip_min[1]);
+                scissor.width = clip_max[0] - clip_min[0];
+                scissor.height = clip_max[1] - clip_min[1];
 
                 let texture = self
                     .textures
@@ -344,6 +365,8 @@ impl Painter {
                 };
             }
         }
+
+        clip_max
     }
 }
 
@@ -412,8 +435,10 @@ impl SoftwareGui {
         &mut self,
         new_input: egui::RawInput,
         screen_size: [usize; 2],
+        tile_size: usize,
         sub_gui: impl FnMut(&egui::Context),
-    ) -> Buffer2d<Algebra565> {
+        draw_colors: impl FnMut(usize, usize, usize, usize, &Buffer2d<Algebra565>),
+    ) {
         let (shapes, textures_delta);
         {
             let output = self.egui_ctx.run(new_input, sub_gui);
@@ -429,6 +454,8 @@ impl SoftwareGui {
             &clipped_primitives,
             pixels_per_point,
             screen_size,
+            tile_size,
+            draw_colors,
         )
     }
 }
