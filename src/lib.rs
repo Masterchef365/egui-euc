@@ -92,6 +92,75 @@ S: Sampler<2, Index = f32, Sample = egui::Rgba>,
     }
 }
 
+/// Presents inner as a larger texture with dimensions screen_width and screen_height
+pub struct Viewport<T> {
+    pub inner: T,
+    pub x: usize,
+    pub y: usize,
+    pub screen_width: usize,
+    pub screen_height: usize,
+}
+
+impl<T: Texture<2, Index = usize>> Viewport<T> {
+    pub fn new(inner: T, x: usize, y: usize, screen_width: usize, screen_height: usize) -> Self {
+        Self {
+            inner,
+            x,
+            y,
+            screen_width,
+            screen_height,
+        }
+    }
+
+    fn bounds_check(&self, x: usize, y: usize) -> bool {
+        let [w, h] = self.inner.size();
+        x >= self.x && y >= self.y && x < self.x + w && y < self.y + h
+    }
+}
+
+
+impl<T> Texture<2> for Viewport<T>
+where
+    T: Texture<2, Index = usize>,
+{
+    type Index = usize;
+    type Texel = T::Texel;
+
+    fn size(&self) -> [Self::Index; 2] {
+        [self.screen_width, self.screen_height]
+    }
+
+    fn read(&self, index: [Self::Index; 2]) -> Self::Texel {
+        let [x, y] = index;
+        if self.bounds_check(x, y) {
+            self.inner.read([x - self.x, y - self.y])
+        } else {
+            self.inner.read([self.x, self.y])
+        }
+    }
+}
+
+impl<T: Target> Target for Viewport<T> {
+    unsafe fn read_exclusive_unchecked(&self, x: usize, y: usize) -> Self::Texel {
+        if self.bounds_check(x, y) {
+            unsafe { self.inner.read_exclusive_unchecked(x - self.x, y - self.y) }
+        } else {
+            unsafe { self.inner.read_exclusive_unchecked(self.x, self.y) }
+        }
+    }
+
+    unsafe fn write_exclusive_unchecked(&self, x: usize, y: usize, texel: Self::Texel) {
+        if self.bounds_check(x, y) {
+            unsafe {
+                self.inner.write_exclusive_unchecked(x - self.x, y - self.y, texel);
+            }
+        }
+    }
+}
+
+
+
+
 /// Wrapper of a euc::Target, reads are unaffected but writes are clipped
 /// by the given rectangle. 
 pub struct Scissor<T> {
