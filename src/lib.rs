@@ -360,17 +360,14 @@ impl Painter {
 
         for item in clipped_primitives {
             if let epaint::Primitive::Mesh(mesh) = &item.primitive {
+                let viewport = Viewport::new(&mut *color, buf_offset[0], buf_offset[1], screen_size[0], screen_size[1]);
+
                 let mut scissor = Scissor::from_clip_rect(
-                    &mut *color,
+                    viewport,
                     screen_size,
                     pixels_per_point,
                     item.clip_rect,
                 );
-
-                scissor.x = scissor.x.max(clip_min[0]);
-                scissor.y = scissor.y.max(clip_min[1]);
-                scissor.width = clip_max[0] - clip_min[0];
-                scissor.height = clip_max[1] - clip_min[1];
 
                 let texture = self
                     .textures
