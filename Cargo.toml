@@ -22,5 +22,5 @@ egui_demo_lib = "0.32.0"
 
 
 [patch.crates-io]
-egui = { path = "../egui/crates/egui/" }
+#egui = { path = "../egui/crates/egui/" }
 
